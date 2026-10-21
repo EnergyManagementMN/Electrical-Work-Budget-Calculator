@@ -1,0 +1,1051 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Electrical Load Calculator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Public+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: a switchboard schedule. Summary panel on top, then each board as a nested schedule sheet.
+   Phase colours follow IEC 60445 (L1 brown, L2 black, L3 grey, N blue); the accent is the neutral blue. */
+:root {
+  --bg: #eef1f4;
+  --sheet: #fbfcfd;
+  --ink: #17202a;
+  --ink-2: #4a5866;
+  --rule: #cfd6de;
+  --rule-strong: #9aa7b4;
+  --accent: #1f5fae;
+  --accent-ink: #ffffff;
+  --accent-soft: #dde8f6;
+  --l1: #7a4a24;
+  --l2: #1c1c1c;
+  --l3: #8c9298;
+  --ok: #2d7a45;
+  --warn: #9a6200;
+  --warn-soft: #fbf0d9;
+  --err: #b3261e;
+  --err-soft: #f9e1df;
+  --adv-soft: #e7ecf1;
+  --font-display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12171d; --sheet: #1a2129; --ink: #e6ebf0; --ink-2: #9fadba; --rule: #2c3640; --rule-strong: #4a5866;
+    --accent: #6ea8ec; --accent-ink: #0d1520; --accent-soft: #1f3550;
+    --l1: #c08454; --l2: #d8dde2; --l3: #7b848d;
+    --ok: #6cc48a; --warn: #e3ae4f; --warn-soft: #3a2f17; --err: #f08a82; --err-soft: #3d1f1d; --adv-soft: #222b34;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12171d; --sheet: #1a2129; --ink: #e6ebf0; --ink-2: #9fadba; --rule: #2c3640; --rule-strong: #4a5866;
+  --accent: #6ea8ec; --accent-ink: #0d1520; --accent-soft: #1f3550;
+  --l1: #c08454; --l2: #d8dde2; --l3: #7b848d;
+  --ok: #6cc48a; --warn: #e3ae4f; --warn-soft: #3a2f17; --err: #f08a82; --err-soft: #3d1f1d; --adv-soft: #222b34;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+.stack { display: grid; gap: 14px; min-width: 0; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.5 var(--font-body);
+}
+.wrap {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding-block: 20px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid;
+  gap: 18px;
+}
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; letter-spacing: 0.01em; }
+h1 { font-size: 1.9rem; font-weight: 600; line-height: 1.1; }
+h2 { font-size: 1.35rem; font-weight: 600; }
+h3 { font-size: 1.1rem; font-weight: 600; }
+.label {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); font-weight: 600;
+}
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--ink-2); }
+p { margin: 0; max-width: 68ch; }
+
+/* Header */
+.top { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: end; justify-content: space-between; }
+.title-block { display: grid; gap: 4px; min-width: 0; flex: 1 1 22rem; }
+.project-name {
+  font: 600 1.9rem/1.1 var(--font-display); color: var(--ink); background: transparent; border: 0;
+  border-bottom: 1px dashed transparent; padding: 0; width: 100%; max-width: 100%; field-sizing: content; min-width: 12ch;
+}
+.project-name:hover, .project-name:focus { border-bottom-color: var(--rule-strong); outline: none; }
+.system { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end; }
+.field { display: grid; gap: 3px; }
+.field > span { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-2); font-weight: 600; }
+
+input, select, textarea, button { font: inherit; color: inherit; }
+input[type="number"], input[type="text"], select {
+  background: var(--sheet); border: 1px solid var(--rule); border-radius: 4px; padding: 5px 7px; min-width: 0;
+}
+input[type="number"] { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, .tab:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+}
+input.invalid { border-color: var(--err); background: var(--err-soft); }
+.w-xs { width: 5.2em; } .w-s { width: 6.5em; } .w-m { width: 9em; } .w-l { width: 14em; }
+
+button {
+  border: 1px solid var(--rule-strong); background: var(--sheet); border-radius: 4px; padding: 5px 10px; cursor: pointer;
+  font-size: 0.86rem;
+}
+button:hover { border-color: var(--accent); color: var(--accent); }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.primary:hover { filter: brightness(1.08); color: var(--accent-ink); }
+button.ghost { border-color: transparent; background: transparent; color: var(--ink-2); }
+button.ghost:hover { color: var(--err); border-color: transparent; }
+
+/* Tabs */
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--rule-strong); overflow-x: auto; }
+.tab {
+  border: 0; border-bottom: 3px solid transparent; background: none; border-radius: 0; padding: 8px 14px;
+  font: 600 1rem var(--font-display); color: var(--ink-2); white-space: nowrap;
+}
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tab:hover { color: var(--ink); border-color: transparent; border-bottom-color: var(--rule-strong); }
+.tab[aria-selected="true"]:hover { border-bottom-color: var(--accent); }
+
+/* Summary */
+.summary {
+  background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r);
+  display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 0;
+}
+.summary > * { padding: 16px 18px; min-width: 0; }
+.summary > * + * { border-left: 1px solid var(--rule); }
+.figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 14px 18px; }
+.figure { display: grid; gap: 2px; }
+.figure .val { font: 500 1.55rem/1.1 var(--font-mono); font-variant-numeric: tabular-nums; }
+.figure .val small { font-size: 0.8rem; color: var(--ink-2); margin-left: 3px; }
+.figure.key .val { color: var(--accent); font-size: 2rem; }
+.figure .sub { font-size: 0.78rem; color: var(--ink-2); }
+.phases { display: grid; gap: 8px; }
+.phase-row { display: grid; grid-template-columns: 2.2em minmax(0, 1fr) 6.5em; gap: 10px; align-items: center; }
+.phase-tag { font: 600 0.85rem var(--font-mono); }
+.bar { height: 12px; background: var(--adv-soft); border-radius: 2px; overflow: hidden; }
+.bar > i { display: block; height: 100%; }
+.phase-row .num { text-align: right; }
+.phase-foot { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 0.82rem; color: var(--ink-2); }
+
+/* Warnings */
+.warnings { display: grid; gap: 6px; }
+.warnings:empty { display: none; }
+.wn {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: baseline;
+  padding: 7px 12px; border-radius: 4px; background: var(--adv-soft); font-size: 0.9rem;
+}
+.wn .pill { font: 600 0.68rem var(--font-body); letter-spacing: 0.07em; text-transform: uppercase; padding: 1px 7px; border-radius: 99px; border: 1px solid currentColor; }
+.wn.error { background: var(--err-soft); } .wn.error .pill { color: var(--err); }
+.wn.warning { background: var(--warn-soft); } .wn.warning .pill { color: var(--warn); }
+.wn.advisory .pill { color: var(--ink-2); }
+.wn b { font-weight: 600; }
+
+/* Boards */
+.board {
+  background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r); min-width: 0;
+}
+.board .board { border-radius: 4px; }
+.board-head {
+  display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; padding: 12px 14px; border-bottom: 1px solid var(--rule);
+}
+.board-name { font: 600 1.15rem var(--font-display); border: 0; background: transparent; padding: 2px 0; width: 16em; max-width: 100%; border-bottom: 1px dashed var(--rule-strong); border-radius: 0; }
+.board-head .spacer { flex: 1 1 0; }
+.board-head .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.board-body { padding: 10px 14px 14px; display: grid; gap: 12px; }
+.children { display: grid; gap: 12px; padding-left: 14px; border-left: 2px solid var(--rule-strong); }
+.ks-src { font-size: 0.78rem; color: var(--ink-2); max-width: 46ch; }
+
+.table-scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 4px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+th, td { padding: 4px 6px; text-align: left; border-bottom: 1px solid var(--rule); vertical-align: middle; white-space: nowrap; }
+th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-2); font-weight: 600; background: var(--bg); }
+th .u { text-transform: none; letter-spacing: 0; font-weight: 400; }
+tr:last-child td { border-bottom: 0; }
+td.out { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+td.state { font-size: 0.78rem; color: var(--ink-2); white-space: normal; min-width: 9em; }
+td.state.bad { color: var(--err); }
+tr.excluded td:not(.state):not(.keep) { opacity: 0.5; }
+td input[type="text"] { width: 100%; min-width: 9em; }
+.empty { padding: 12px; color: var(--ink-2); font-size: 0.88rem; }
+
+.board-result {
+  display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 0.86rem; padding: 8px 10px; background: var(--bg); border-radius: 4px;
+}
+.board-result span b { font-family: var(--font-mono); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+/* Library & file */
+.panel { background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r); padding: 16px 18px; display: grid; gap: 12px; min-width: 0; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+textarea { width: 100%; min-height: 320px; font: 0.82rem/1.45 var(--font-mono); background: var(--bg); border: 1px solid var(--rule); border-radius: 4px; padding: 10px; }
+.status { font-size: 0.85rem; color: var(--ok); min-height: 1.2em; }
+.status.bad { color: var(--err); }
+.method { display: grid; gap: 14px; }
+.method ol { margin: 0; padding-left: 1.3em; display: grid; gap: 8px; max-width: 72ch; }
+.method code, .formula { font-family: var(--font-mono); font-size: 0.88em; background: var(--bg); padding: 1px 5px; border-radius: 3px; }
+.tag { font: 600 0.66rem var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; padding: 0 5px; border-radius: 3px; background: var(--accent-soft); color: var(--accent); }
+.tag.assumed { background: var(--warn-soft); color: var(--warn); }
+.method ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 72ch; }
+a { color: var(--accent); }
+
+@media (max-width: 760px) {
+  .summary { grid-template-columns: 1fr; }
+  .summary > * + * { border-left: 0; border-top: 1px solid var(--rule); }
+  .children { padding-left: 8px; }
+  .figure.key .val { font-size: 1.7rem; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="title-block">
+      <span class="label">Maximum demand · IEC method (ku / ks)</span>
+      <input class="project-name" id="project-name" type="text" aria-label="Project name">
+    </div>
+    <div class="system" id="system"></div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-schedule" data-tab="schedule" aria-selected="true">Load schedule</button>
+    <button class="tab" role="tab" id="tab-library" data-tab="library" aria-selected="false">Factor library</button>
+    <button class="tab" role="tab" id="tab-file" data-tab="file" aria-selected="false">Project file</button>
+    <button class="tab" role="tab" id="tab-method" data-tab="method" aria-selected="false">Method &amp; sources</button>
+  </nav>
+
+  <section id="view-schedule" class="stack">
+    <div class="summary" id="summary"></div>
+    <div class="warnings" id="warnings"></div>
+    <div id="tree"></div>
+  </section>
+
+  <section id="view-library" hidden></section>
+  <section id="view-file" hidden></section>
+
+  <section id="view-method" class="panel method" hidden>
+    <h2>How the demand is calculated</h2>
+    <p>Connected load is converted to expected maximum demand with a utilisation factor ku per load and a coincidence factor ks per board. Results size feeders, boards, transformers and generators.</p>
+    <ol>
+      <li><b>Installed apparent power per load.</b> <span class="formula">Pa = Pn / (η · cosφ)</span> kVA. Motor ratings are shaft output, so η and cosφ are required. Active power <span class="formula">P = Pn/η</span>, reactive <span class="formula">Q = P · tanφ</span>. <span class="tag">Sourced EIG</span></li>
+      <li><b>Maximum utilisation.</b> <span class="formula">Pa,max = Pa · ku · n</span>. Typical ku: motors 0.75 (average industrial), incandescent lighting 1, EV charging 1. <span class="tag">Sourced EIG</span></li>
+      <li><b>Board demand.</b> <span class="formula">S = ks · Σ Pa,max</span>. Mixed power factors are summed as complex power, <span class="formula">S = √((ks·ΣP)² + (ks·ΣQ)²)</span>. The arithmetic kVA sum is shown beside it and can be chosen as the design basis. <span class="tag">Sourced EIG</span> <span class="tag">Derived</span></li>
+      <li><b>Hierarchy.</b> Each board applies its own ks to the demand of the loads and sub-boards it feeds. ks is never applied twice to the same load.</li>
+      <li><b>Extension factor.</b> <span class="formula">S,design = S · k,ext</span> with k,ext ≥ 1. User input only. <span class="tag assumed">Assumed</span></li>
+      <li><b>Design current.</b> Three-phase <span class="formula">Ib = S·10³ / (√3·U)</span>; single-phase <span class="formula">Ib = S·10³ / V</span>. <span class="tag">Sourced EIG</span></li>
+      <li><b>Phase balance.</b> Single-phase loads are summed per phase. Unbalance <span class="formula">(Imax − Iavg) / Iavg</span>, checked against your limit. <span class="tag assumed">Assumed method</span></li>
+    </ol>
+    <h3>Non-simultaneous and standby loads</h3>
+    <p>Give loads that never run together the same exclusive group (for example <code>season</code>) and different options (<code>winter</code>, <code>summer</code>). On each board only the option with the larger demand counts. Standby loads count toward connected load but not demand.</p>
+    <h3>What this version does not cover yet</h3>
+    <ul>
+      <li>No national demand-factor tables are built in as authoritative. MNS and PUE tables for Mongolia were not found during research. Residential per-dwelling tables (BS 7671 App. 4, SP 256) are not included.</li>
+      <li>Lift starting current (Ib + ⅓ Istart), motor starting dip, harmonic neutral current and cable sizing are later modules.</li>
+      <li>EIG Fig. A15 (workshop example) is not a test case yet because its itemised values could not be read.</li>
+    </ul>
+    <h3>Sources</h3>
+    <ul>
+      <li><a href="https://www.electrical-installation.org/enwiki/Estimation_of_actual_maximum_kVA_demand" target="_blank" rel="noopener">EIG: Estimation of actual maximum kVA demand</a></li>
+      <li><a href="https://www.electrical-installation.org/enwiki/Diversity_factor" target="_blank" rel="noopener">EIG: Diversity factor (IEC 61439-2 Table 101, UTE C 15-105)</a></li>
+      <li><a href="https://www.electrical-installation.org/enwiki/Installed_apparent_power_(kVA)" target="_blank" rel="noopener">EIG: Installed apparent power (kVA)</a></li>
+      <li><a href="https://www.electrical-installation.org/enwiki/Installed_power_(kW)" target="_blank" rel="noopener">EIG: Installed power (kW)</a></li>
+    </ul>
+    <p class="muted">Results are design aids. A licensed engineer must verify factors against the governing local standard.</p>
+  </section>
+</div>
+<script>
+/*
+ * Load calculation & demand/diversity factors — SPEC 1 of the Electrical Calc App research log.
+ * Pure functions, no DOM. Works as a browser global (window.LoadCalc) and as a CommonJS module.
+ *
+ * Tags used in comments mirror the spec: [SOURCED] from a cited source, [DERIVED] maths on sourced
+ * inputs, [ASSUMED] an engineering convention that still needs verification.
+ */
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.LoadCalc = api;
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  const SQRT3 = Math.sqrt(3);
+  const PHASES = ['L1', 'L2', 'L3'];
+  const CATEGORIES = ['lighting', 'sockets', 'heating', 'motor', 'lift', 'EV', 'other'];
+  // Categories whose pf may default to 1.0 when left blank (resistive). [ASSUMED]
+  const RESISTIVE_DEFAULT_PF = new Set(['heating']);
+
+  const DEFAULT_SYSTEM = {
+    voltageLL: 400, // [ASSUMED for Mongolia — legacy PUE/GOST nominal is 380/220 V; configurable]
+    frequency: 50,
+    summation: 'complex', // 'complex' (P/Q) or 'arithmetic' (kVA sum, conservative)
+    unbalanceLimit: 0.1, // [ASSUMED] advisory threshold only, no sourced limit
+  };
+
+  /*
+   * Factor library. Every row carries its source. These are the rows the research log could source;
+   * none is authoritative for Mongolian design (spec §4 design decision).
+   */
+  const EIG = 'Schneider Electric Installation Guide (electrical-installation.org)';
+  const DEFAULT_LIBRARY = [
+    ...[['2–3 circuits', 0.9], ['4–5 circuits', 0.8], ['6–9 circuits', 0.7], ['10 or more circuits', 0.6],
+      ['Electric actuator', 0.2], ['Motors ≤ 100 kW', 0.8], ['Motors > 100 kW', 1.0]].map(([name, value], i) => ({
+      id: 'iec61439-' + i,
+      table: 'IEC 61439-2 Table 101 (assembly rated diversity factor)',
+      name, value, kind: 'assembly', region: 'International',
+      source: EIG + ', Fig. A13',
+      note: 'For assembly thermal rating when the load is not agreed. Not a design demand factor.',
+    })),
+    ...[['Lighting', 1], ['Heating and air conditioning', 1], ['Socket outlets (low)', 0.1], ['Socket outlets (high)', 0.2],
+      ['Lifts: largest motor', 1], ['Lifts: second motor', 0.75], ['Lifts: all motors', 0.6]].map(([name, value], i) => ({
+      id: 'ute-c15-105-' + i,
+      table: 'UTE C 15-105 Table AC (ks by circuit function)',
+      name, value, kind: 'ks', region: 'France',
+      source: EIG + ', Fig. A14',
+      note: name.startsWith('Lifts') ? 'Lift circuit current = Ib + ⅓ starting current.' : 'French local guide. Example only.',
+    })),
+    ...[['2–4 consumers', 1], ['5–9 consumers', 0.78], ['10–14 consumers', 0.63], ['15–19 consumers', 0.53],
+      ['20–24 consumers', 0.49], ['25–29 consumers', 0.46], ['30–34 consumers', 0.44], ['35–39 consumers', 0.42],
+      ['40–49 consumers', 0.41], ['50 or more consumers', 0.38], ['Electric heat-storage', 0.8]].map(([name, value], i) => ({
+      id: 'nfc14-100-' + i,
+      table: 'NF C 14-100 (apartment block ks by number of consumers)',
+      name, value, kind: 'ks', region: 'France',
+      source: EIG + ', "Estimation of actual maximum kVA demand"',
+      note: 'French national rule. Not valid for Mongolia by default.',
+    })),
+    {
+      id: 'eig-ku-motor', table: 'Utilisation factor ku (EIG)', name: 'Motors, average industrial', value: 0.75,
+      kind: 'ku', region: 'International', source: EIG + ', "Estimation of actual maximum kVA demand"', note: '',
+    },
+    {
+      id: 'eig-ku-ev', table: 'Utilisation factor ku (EIG)', name: 'EV charging (dedicated circuit)', value: 1,
+      kind: 'ku', region: 'International', source: EIG + ', "Estimation of actual maximum kVA demand"', note: '',
+    },
+  ];
+
+  function isNum(v) { return typeof v === 'number' && Number.isFinite(v); }
+  function num(v) {
+    if (v === null || v === undefined || v === '') return null;
+    const n = typeof v === 'number' ? v : Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  /* Step 1 + 2 for one load row. Returns per-unit and n-unit values, or errors. */
+  function computeLoad(load) {
+    const errors = [];
+    const notes = [];
+    const pn = num(load.pn);
+    const qty = num(load.qty) ?? 1;
+    const ku = num(load.ku) ?? 1; // [ASSUMED] conservative default
+    let eff = num(load.eff);
+    let pf = num(load.pf);
+
+    if (!isNum(pn) || pn <= 0) errors.push('Rated power must be greater than 0 kW.');
+    if (!Number.isInteger(qty) || qty < 1) errors.push('Quantity must be a whole number of 1 or more.');
+    if (load.isMotor && eff === null) errors.push('Motor rating is shaft output: enter efficiency η from the nameplate.');
+    if (eff === null) eff = 1;
+    if (eff < 0.5 || eff > 1) errors.push('Efficiency must be between 0.5 and 1.0.');
+    if (pf === null) {
+      if (!load.isMotor && RESISTIVE_DEFAULT_PF.has(load.category)) { pf = 1; notes.push('cosφ defaulted to 1.0 (resistive).'); }
+      else errors.push('Enter power factor cosφ (no default for ' + (load.isMotor ? 'motors' : 'this load type') + ').');
+    }
+    if (pf !== null && (pf < 0.1 || pf > 1)) errors.push('Power factor must be between 0.1 and 1.0.');
+    if (ku < 0) errors.push('Utilisation factor ku cannot be negative.');
+    if (errors.length) return { ok: false, errors, notes };
+
+    const P1 = pn / eff;                 // kW input per unit [SOURCED EIG]
+    const S1 = pn / (eff * pf);          // installed kVA per unit, Pa [SOURCED EIG]
+    const Q1 = P1 * Math.tan(Math.acos(pf)); // kvar [DERIVED]
+    const k = ku * qty;
+    const res = {
+      ok: true, errors, notes, eff, pf, ku, qty,
+      unit: { P: P1, Q: Q1, S: S1 },
+      connected: { P: P1 * qty, Q: Q1 * qty, S: S1 * qty },
+      max: { P: P1 * k, Q: Q1 * k, S: S1 * k }, // Pa_max = Pa · ku · n [SOURCED EIG]
+      phases: emptyPhases(),
+    };
+    // Split onto phases: three-phase loads split evenly; single-phase loads sit on one phase.
+    const targets = load.phase && load.phase !== '3ph' ? [load.phase] : PHASES;
+    for (const ph of targets) {
+      const f = 1 / targets.length;
+      res.phases[ph] = { P: res.max.P * f, Q: res.max.Q * f, S: res.max.S * f };
+    }
+    return res;
+  }
+
+  function emptyPhases() {
+    return { L1: { P: 0, Q: 0, S: 0 }, L2: { P: 0, Q: 0, S: 0 }, L3: { P: 0, Q: 0, S: 0 } };
+  }
+  function addTo(acc, v, f = 1) { acc.P += v.P * f; acc.Q += v.Q * f; acc.S += v.S * f; }
+
+  /*
+   * Mutually-exclusive loads (e.g. winter heating vs summer cooling): within one board, loads sharing
+   * an exclusive group are split by option; only the option with the largest demand counts.
+   */
+  function pickExclusive(rows) {
+    const groups = new Map();
+    for (const r of rows) {
+      const g = (r.load.exGroup || '').trim();
+      if (!g || r.load.standby || !r.calc.ok) continue;
+      const opt = (r.load.exOption || '').trim() || '(blank)';
+      if (!groups.has(g)) groups.set(g, new Map());
+      const opts = groups.get(g);
+      if (!opts.has(opt)) opts.set(opt, { P: 0, Q: 0, S: 0 });
+      addTo(opts.get(opt), r.calc.max);
+    }
+    const chosen = {};
+    for (const [g, opts] of groups) {
+      let best = null; let bestS = -1;
+      for (const [opt, v] of opts) {
+        const s = Math.hypot(v.P, v.Q);
+        if (s > bestS) { bestS = s; best = opt; }
+      }
+      chosen[g] = { option: best, options: [...opts.keys()] };
+    }
+    return chosen;
+  }
+
+  function libraryRow(library, id) {
+    return id ? (library || []).find((r) => r.id === id) || null : null;
+  }
+
+  /* Steps 3–7 for one board and, recursively, everything below it. */
+  function computeNode(node, system = DEFAULT_SYSTEM, library = DEFAULT_LIBRARY, depth = 0) {
+    const sys = { ...DEFAULT_SYSTEM, ...system };
+    const U = num(sys.voltageLL) || 400;
+    const Vph = U / SQRT3;
+    const ks = num(node.ks) ?? 1;      // [ASSUMED] default 1.0
+    const kext = num(node.kext) ?? 1;  // [ASSUMED] default 1.0, no sourced value
+    const warnings = [];
+
+    const rows = (node.loads || []).map((load) => ({ load, calc: computeLoad(load) }));
+    const exclusive = pickExclusive(rows);
+    const children = (node.children || []).map((c) => computeNode(c, sys, library, depth + 1));
+
+    const sum = { P: 0, Q: 0, S: 0 };       // S here is the arithmetic kVA sum
+    const connected = { P: 0, Q: 0, S: 0 };
+    const phases = emptyPhases();
+    const catKVA = {};
+    let largestUnit = { S: 0, name: '' };
+    let errorCount = 0;
+
+    for (const r of rows) {
+      if (!r.calc.ok) { errorCount++; continue; }
+      addTo(connected, r.calc.connected);
+      catKVA[r.load.category || 'other'] = (catKVA[r.load.category || 'other'] || 0) + r.calc.connected.S;
+      const unitMax = r.calc.unit.S * r.calc.ku;
+      if (unitMax > largestUnit.S) largestUnit = { S: unitMax, name: r.load.name || 'unnamed load' };
+
+      const g = (r.load.exGroup || '').trim();
+      const opt = (r.load.exOption || '').trim() || '(blank)';
+      r.counted = !r.load.standby && (!g || exclusive[g].option === opt);
+      r.excludedReason = r.load.standby ? 'standby' : r.counted ? '' : 'non-simultaneous (' + g + ': ' + exclusive[g].option + ' governs)';
+      if (!r.counted) continue;
+      addTo(sum, r.calc.max);
+      for (const ph of PHASES) addTo(phases[ph], r.calc.phases[ph]);
+    }
+    for (const c of children) {
+      addTo(connected, c.connected);
+      for (const [k, v] of Object.entries(c.catKVA)) catKVA[k] = (catKVA[k] || 0) + v;
+      if (c.largestUnit.S > largestUnit.S) largestUnit = c.largestUnit;
+      errorCount += c.errorCount;
+      // A child's demand already includes its own ks: apply only this board's ks on top (step 4).
+      sum.P += c.demand.P; sum.Q += c.demand.Q; sum.S += c.demand.Sarith;
+      for (const ph of PHASES) addTo(phases[ph], c.phaseDemand[ph]);
+    }
+
+    const f = ks * kext; // step 3 (ks) and step 5 (k_ext)
+    const demand = { P: sum.P * f, Q: sum.Q * f, Sarith: sum.S * f };
+    demand.Scomplex = Math.hypot(demand.P, demand.Q);
+    const S = sys.summation === 'arithmetic' ? demand.Sarith : demand.Scomplex;
+    demand.S = S;
+    const phaseDemand = emptyPhases();
+    for (const ph of PHASES) addTo(phaseDemand[ph], phases[ph], f);
+
+    // Step 6 — design current, balanced three-phase. [SOURCED EIG]
+    const Ib = (S * 1000) / (SQRT3 * U);
+    // Step 7 — per-phase currents and unbalance. [ASSUMED method]
+    const phaseCurrent = {};
+    for (const ph of PHASES) {
+      const p = phaseDemand[ph];
+      const sPh = sys.summation === 'arithmetic' ? p.S : Math.hypot(p.P, p.Q);
+      phaseCurrent[ph] = (sPh * 1000) / Vph;
+    }
+    const Is = PHASES.map((ph) => phaseCurrent[ph]);
+    const Imax = Math.max(...Is);
+    const Iavg = (Is[0] + Is[1] + Is[2]) / 3;
+    const unbalance = Iavg > 0 ? (Imax - Iavg) / Iavg : 0;
+    const maxPhase = PHASES[Is.indexOf(Imax)];
+
+    // Warnings (spec §5).
+    const ksRow = libraryRow(library, node.ksRef);
+    if (ks > 1) warnings.push(warn('error', 'ks is ' + fmt(ks, 2) + '. A coincidence factor must be 1.0 or less.'));
+    if (ks <= 0) warnings.push(warn('error', 'ks must be greater than 0.'));
+    if (kext < 1) warnings.push(warn('warning', 'Extension factor below 1.0 reduces the design load. Use 1.0 or more.'));
+    for (const r of rows) {
+      if (r.calc.ok && r.calc.ku > 1) warnings.push(warn('warning', (r.load.name || 'A load') + ': ku above 1.0 is unusual.'));
+      if (r.load.category === 'motor' && !r.load.isMotor) warnings.push(warn('advisory', (r.load.name || 'A motor') + ': category is motor but the rating is not marked as shaft output. Check that Pn is electrical input.'));
+      if (r.load.category === 'lift') warnings.push(warn('advisory', (r.load.name || 'A lift') + ': per UTE C 15-105 a lift circuit carries Ib + ⅓ starting current. Starting current is not modelled yet.'));
+    }
+    const totalCat = Object.values(catKVA).reduce((a, b) => a + b, 0);
+    const lh = (catKVA.lighting || 0) + (catKVA.heating || 0);
+    if (ks < 0.5 && totalCat > 0 && lh / totalCat > 0.5) {
+      warnings.push(warn('warning', 'ks ' + fmt(ks, 2) + ' on a board that is mostly lighting and heating. EIG gives ks ≈ 1 for these.'));
+    }
+    if (largestUnit.S > 0 && S + 1e-9 < largestUnit.S) {
+      warnings.push(warn('error', 'Demand ' + fmt(S, 1) + ' kVA is below the largest single load (' + largestUnit.name + ', ' + fmt(largestUnit.S, 1) + ' kVA). ks is too low.'));
+    }
+    if (Iavg > 0 && unbalance > sys.unbalanceLimit) {
+      warnings.push(warn('warning', 'Phase unbalance ' + fmt(unbalance * 100, 0) + '% exceeds the ' + fmt(sys.unbalanceLimit * 100, 0) + '% limit (' + maxPhase + ' highest).'));
+    }
+    if (depth === 0 && kext === 1) warnings.push(warn('advisory', 'No spare capacity: extension factor is 1.0.'));
+    if (ksRow && ksRow.kind === 'assembly') warnings.push(warn('warning', 'ks taken from ' + ksRow.table + '. That factor rates switchboard assemblies and is not a design demand factor.'));
+    if (ksRow && ksRow.region && !/international|mongolia|user/i.test(ksRow.region)) warnings.push(warn('advisory', 'ks taken from a ' + ksRow.region + ' table. Not verified for local use.'));
+    if (demand.Scomplex > 0 && Math.abs(demand.Sarith - demand.Scomplex) / demand.Scomplex > 0.05) {
+      warnings.push(warn('advisory', 'Arithmetic kVA sum (' + fmt(demand.Sarith, 1) + ') and complex sum (' + fmt(demand.Scomplex, 1) + ') differ by more than 5% because of mixed power factors.'));
+    }
+
+    return {
+      id: node.id, name: node.name, depth, ks, kext, ksRow,
+      rows, children, exclusive,
+      connected, catKVA, largestUnit, errorCount,
+      demand, phaseDemand, phaseCurrent, unbalance, maxPhase,
+      Ib, pf: demand.Scomplex > 0 ? demand.P / demand.Scomplex : null,
+      effectiveKs: connected.S > 0 ? S / connected.S : null,
+      warnings,
+    };
+  }
+
+  function warn(level, text) { return { level, text }; }
+  function fmt(v, d) { return isNum(v) ? v.toFixed(d) : '—'; }
+
+  /* Collect warnings from a computed tree, each tagged with its board name. */
+  function allWarnings(result) {
+    const out = result.warnings.map((w) => ({ ...w, board: result.name }));
+    for (const c of result.children) out.push(...allWarnings(c));
+    return out;
+  }
+
+  return {
+    SQRT3, PHASES, CATEGORIES, DEFAULT_SYSTEM, DEFAULT_LIBRARY,
+    computeLoad, computeNode, allWarnings, fmt,
+  };
+});
+</script>
+<script>
+/* UI for the load calculator. State lives in `project`; calc.js does all the engineering. */
+(function () {
+  'use strict';
+  const C = window.LoadCalc;
+  const STORE_KEY = 'electrical-load-calc:v1';
+  const $ = (id) => document.getElementById(id);
+
+  let seq = 0;
+  const uid = (p) => p + Date.now().toString(36) + (seq++).toString(36);
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+
+  function newLoad(over) {
+    return {
+      id: uid('l'), name: '', category: 'other', pn: null, isMotor: false, eff: null, pf: null, qty: 1,
+      phase: '3ph', ku: 1, standby: false, exGroup: '', exOption: '', ...over,
+    };
+  }
+  function newBoard(over) {
+    return { id: uid('b'), name: 'New board', ks: 1, kext: 1, ksRef: null, loads: [], children: [], ...over };
+  }
+  const motor = (o) => newLoad({ category: 'motor', isMotor: true, ...o });
+
+  const SAMPLES = {
+    workshop: {
+      label: 'Workshop and office',
+      make: () => ({
+        name: 'Workshop and office (example)', example: true,
+        root: newBoard({
+          name: 'MDB · Main LV board', ks: 0.9, kext: 1.2,
+          loads: [newLoad({ name: 'EV charger, 32 A', category: 'EV', pn: 7.4, pf: 0.99, phase: 'L3', ku: 1 })],
+          children: [
+            newBoard({
+              name: 'DB-1 · Machine shop', ks: 0.8,
+              loads: [
+                motor({ name: 'Lathe', pn: 11, eff: 0.9, pf: 0.85, qty: 2, ku: 0.75 }),
+                motor({ name: 'Air compressor', pn: 22, eff: 0.92, pf: 0.86, ku: 0.75 }),
+                motor({ name: 'Coolant pump, duty', pn: 4, eff: 0.87, pf: 0.82, ku: 0.75 }),
+                motor({ name: 'Coolant pump, standby', pn: 4, eff: 0.87, pf: 0.82, ku: 0.75, standby: true }),
+                newLoad({ name: 'Socket circuit', category: 'sockets', pn: 3.6, pf: 0.9, ku: 0.2, phase: 'L1' }),
+                newLoad({ name: 'Socket circuit', category: 'sockets', pn: 3.6, pf: 0.9, ku: 0.2, phase: 'L2' }),
+              ],
+            }),
+            newBoard({
+              name: 'DB-2 · Office', ks: 0.9,
+              loads: [
+                newLoad({ name: 'LED panel, 36 W', category: 'lighting', pn: 0.036, pf: 0.9, qty: 40, phase: 'L1' }),
+                newLoad({ name: 'LED panel, 36 W', category: 'lighting', pn: 0.036, pf: 0.9, qty: 40, phase: 'L2' }),
+                newLoad({ name: 'Socket circuit', category: 'sockets', pn: 3.6, pf: 0.9, qty: 4, ku: 0.2, phase: 'L3' }),
+                newLoad({ name: 'Panel heater, 2 kW', category: 'heating', pn: 2, qty: 6, exGroup: 'season', exOption: 'winter' }),
+                newLoad({ name: 'Split AC, 3.5 kW', category: 'other', pn: 3.5, pf: 0.9, qty: 2, exGroup: 'season', exOption: 'summer' }),
+              ],
+            }),
+          ],
+        }),
+      }),
+    },
+    eigA: {
+      label: 'EIG example A: apartment block',
+      make: () => ({
+        name: 'EIG example A: 5-storey apartment block', example: true,
+        root: newBoard({
+          name: 'Rising main', ks: 0.46, ksRef: 'nfc14-100-5',
+          loads: [newLoad({ name: 'Dwelling, 6 kVA each', pn: 6, pf: 1, qty: 25 })],
+        }),
+      }),
+    },
+    eigB: {
+      label: 'EIG example B: third floor',
+      make: () => ({
+        name: 'EIG example B: third-floor supply', example: true,
+        root: newBoard({
+          name: 'Third floor', ks: 0.63, ksRef: 'nfc14-100-2',
+          loads: [
+            newLoad({ name: 'Consumers above, 36 kVA', pn: 36, pf: 1 }),
+            newLoad({ name: 'Third-floor consumers, 24 kVA', pn: 24, pf: 1 }),
+          ],
+        }),
+      }),
+    },
+  };
+
+  function makeProject(sampleKey) {
+    const base = sampleKey ? SAMPLES[sampleKey].make() : { name: 'New project', example: false, root: newBoard({ name: 'MDB · Main LV board' }) };
+    return { version: 1, system: { ...C.DEFAULT_SYSTEM }, library: clone(C.DEFAULT_LIBRARY), ...base };
+  }
+
+  function isProject(p) { return p && typeof p === 'object' && p.root && Array.isArray(p.root.loads); }
+  function normalise(p) {
+    p.system = { ...C.DEFAULT_SYSTEM, ...(p.system || {}) };
+    if (!Array.isArray(p.library)) p.library = clone(C.DEFAULT_LIBRARY);
+    const fix = (b) => {
+      b.id = b.id || uid('b'); b.loads = b.loads || []; b.children = b.children || [];
+      b.loads.forEach((l) => { l.id = l.id || uid('l'); });
+      b.children.forEach(fix);
+    };
+    fix(p.root);
+    return p;
+  }
+
+  let project;
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+    project = isProject(saved) ? normalise(saved) : makeProject('workshop');
+  } catch (e) {
+    project = makeProject('workshop');
+  }
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(project)); } catch (e) { /* storage unavailable */ }
+  }
+
+  /* ---------- helpers ---------- */
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const f = (v, d = 1) => C.fmt(v, d);
+  const val = (v) => (v === null || v === undefined ? '' : esc(v));
+
+  let boards = new Map(); // id -> { board, parent }
+  let loads = new Map();  // id -> { load, board }
+  function index() {
+    boards = new Map(); loads = new Map();
+    const walk = (b, parent) => {
+      boards.set(b.id, { board: b, parent });
+      b.loads.forEach((l) => loads.set(l.id, { load: l, board: b }));
+      b.children.forEach((c) => walk(c, b));
+    };
+    walk(project.root, null);
+  }
+
+  /* ---------- header / system ---------- */
+  function renderSystem() {
+    const s = project.system;
+    $('project-name').value = project.name || '';
+    $('system').innerHTML = `
+      <label class="field"><span>Voltage U, L–L</span>
+        <select id="sys-voltage" data-sys="voltageLL">
+          ${[400, 380, 690, 415].map((v) => `<option value="${v}"${+s.voltageLL === v ? ' selected' : ''}>${v} / ${Math.round(v / Math.sqrt(3))} V</option>`).join('')}
+        </select></label>
+      <label class="field"><span>Design basis</span>
+        <select id="sys-summation" data-sys="summation">
+          <option value="complex"${s.summation === 'complex' ? ' selected' : ''}>Complex sum (P, Q)</option>
+          <option value="arithmetic"${s.summation === 'arithmetic' ? ' selected' : ''}>Arithmetic kVA sum</option>
+        </select></label>
+      <label class="field"><span>Unbalance limit, %</span>
+        <input id="sys-unbalance" class="w-xs" type="number" min="0" step="1" data-sys="unbalanceLimit" value="${Math.round(s.unbalanceLimit * 100)}"></label>
+      <label class="field"><span>Frequency</span><input id="sys-freq" class="w-xs" type="text" value="50 Hz" disabled></label>`;
+  }
+
+  /* ---------- schedule ---------- */
+  function ksOptions(b) {
+    const groups = new Map();
+    project.library.filter((r) => r.kind === 'ks' || r.kind === 'assembly').forEach((r) => {
+      if (!groups.has(r.table)) groups.set(r.table, []);
+      groups.get(r.table).push(r);
+    });
+    let html = `<option value="">Manual entry</option>`;
+    for (const [table, rows] of groups) {
+      html += `<optgroup label="${esc(table)}">` + rows.map((r) =>
+        `<option value="${esc(r.id)}"${b.ksRef === r.id ? ' selected' : ''}>${esc(r.name)} · ${r.value}</option>`).join('') + '</optgroup>';
+    }
+    return html;
+  }
+
+  const PHASE_OPTS = [['3ph', '3-phase'], ['L1', 'L1'], ['L2', 'L2'], ['L3', 'L3']];
+  function loadRow(l) {
+    const sel = (opts, cur) => opts.map(([v, t]) => `<option value="${v}"${cur === v ? ' selected' : ''}>${t}</option>`).join('');
+    const n = (fld, cls, step, extra = '') => `<input class="${cls}" type="number" step="${step}" data-l="${l.id}" data-f="${fld}" value="${val(l[fld])}" aria-label="${fld}" ${extra}>`;
+    return `<tr id="lr-${l.id}">
+      <td class="keep"><input type="text" data-l="${l.id}" data-f="name" value="${val(l.name)}" placeholder="Load name" aria-label="Load name"></td>
+      <td><select data-l="${l.id}" data-f="category" aria-label="Category">${sel(C.CATEGORIES.map((c) => [c, c]), l.category)}</select></td>
+      <td>${n('pn', 'w-s', 'any', 'min="0"')}</td>
+      <td style="text-align:center"><input type="checkbox" data-l="${l.id}" data-f="isMotor"${l.isMotor ? ' checked' : ''} aria-label="Rating is motor shaft output"></td>
+      <td>${n('eff', 'w-xs', '0.01', 'min="0.5" max="1" placeholder="' + (l.isMotor ? 'req.' : '1.0') + '"')}</td>
+      <td>${n('pf', 'w-xs', '0.01', 'min="0.1" max="1" placeholder="' + (l.category === 'heating' && !l.isMotor ? '1.0' : 'req.') + '"')}</td>
+      <td>${n('qty', 'w-xs', '1', 'min="1"')}</td>
+      <td><select data-l="${l.id}" data-f="phase" aria-label="Phase">${sel(PHASE_OPTS, l.phase)}</select></td>
+      <td>${n('ku', 'w-xs', '0.05', 'min="0" max="1"')}</td>
+      <td style="text-align:center"><input type="checkbox" data-l="${l.id}" data-f="standby"${l.standby ? ' checked' : ''} aria-label="Standby"></td>
+      <td><input class="w-s" type="text" data-l="${l.id}" data-f="exGroup" value="${val(l.exGroup)}" placeholder="—" aria-label="Exclusive group"></td>
+      <td><input class="w-s" type="text" data-l="${l.id}" data-f="exOption" value="${val(l.exOption)}" placeholder="—" aria-label="Option"></td>
+      <td class="out" data-out="pa"></td>
+      <td class="out" data-out="max"></td>
+      <td class="state" data-out="state"></td>
+      <td class="keep"><button class="ghost" data-act="del-load" data-l="${l.id}" aria-label="Remove load" title="Remove load">✕</button></td>
+    </tr>`;
+  }
+
+  function boardHTML(b, depth) {
+    const table = b.loads.length ? `
+      <div class="table-scroll"><table>
+        <thead><tr>
+          <th>Load</th><th>Category</th><th>Pn <span class="u">kW</span></th><th title="Rating is motor shaft output">Motor</th>
+          <th><span class="u">η</span></th><th><span class="u">cosφ</span></th><th>Qty</th><th>Phase</th><th>ku</th><th>Standby</th>
+          <th title="Loads in the same group never run together">Excl. group</th><th>Option</th>
+          <th style="text-align:right">Pa <span class="u">kVA ea.</span></th><th style="text-align:right">Pa·ku·n <span class="u">kVA</span></th><th>Status</th><th></th>
+        </tr></thead>
+        <tbody>${b.loads.map(loadRow).join('')}</tbody>
+      </table></div>` : `<div class="empty">No loads on this board yet. Add a load or a sub-board.</div>`;
+    return `<div class="board" data-board="${b.id}">
+      <div class="board-head">
+        <label class="field"><span>${depth === 0 ? 'Main board' : 'Sub-board'}</span>
+          <input class="board-name" type="text" data-b="${b.id}" data-f="name" value="${val(b.name)}" aria-label="Board name"></label>
+        <label class="field"><span>ks (≤ 1)</span><input id="ks-${b.id}" class="w-xs" type="number" step="0.01" min="0" max="1" data-b="${b.id}" data-f="ks" value="${val(b.ks)}"></label>
+        <label class="field"><span>ks from library</span><select id="ksref-${b.id}" class="w-l" data-b="${b.id}" data-f="ksRef">${ksOptions(b)}</select></label>
+        <label class="field"><span>Extension k<sub>ext</sub></span><input class="w-xs" type="number" step="0.05" min="1" data-b="${b.id}" data-f="kext" value="${val(b.kext)}"></label>
+        <span class="spacer"></span>
+        <div class="actions">
+          <button data-act="add-load" data-b="${b.id}">Add load</button>
+          <button data-act="add-board" data-b="${b.id}">Add sub-board</button>
+          ${depth > 0 ? `<button class="ghost" data-act="del-board" data-b="${b.id}">Remove board</button>` : ''}
+        </div>
+      </div>
+      <div class="board-body">
+        <div class="ks-src" id="kss-${b.id}"></div>
+        ${table}
+        <div class="board-result" id="res-${b.id}"></div>
+        ${b.children.length ? `<div class="children">${b.children.map((c) => boardHTML(c, depth + 1)).join('')}</div>` : ''}
+      </div>
+    </div>`;
+  }
+
+  function renderTree() {
+    index();
+    const banner = project.example
+      ? `<div class="wn advisory" style="margin-bottom:12px"><span class="pill">Example</span><span>Example values, not from a real project. Edit them, or start a new project under <b>Project file</b>.</span></div>`
+      : '';
+    $('tree').innerHTML = banner + boardHTML(project.root, 0);
+    updateResults();
+  }
+
+  function updateResults() {
+    const r = C.computeNode(project.root, project.system, project.library);
+    renderSummary(r);
+    const walk = (res) => {
+      const el = $('res-' + res.id);
+      if (el) {
+        el.innerHTML = `
+          <span>Connected <b>${f(res.connected.S)}</b> kVA</span>
+          <span>Before ks <b>${f(res.ks * res.kext > 0 ? res.demand.S / (res.ks * res.kext) : 0)}</b> kVA</span>
+          <span>Demand <b>${f(res.demand.S)}</b> kVA</span>
+          <span><b>${f(res.demand.P)}</b> kW · <b>${f(res.demand.Q)}</b> kvar</span>
+          <span>cosφ <b>${f(res.pf, 2)}</b></span>
+          <span>Ib <b>${f(res.Ib)}</b> A</span>
+          <span>L1/L2/L3 <b>${f(res.phaseCurrent.L1)} / ${f(res.phaseCurrent.L2)} / ${f(res.phaseCurrent.L3)}</b> A</span>`;
+      }
+      const src = $('kss-' + res.id);
+      if (src) {
+        src.textContent = res.ksRow ? `ks source: ${res.ksRow.table}, “${res.ksRow.name}” (${res.ksRow.region}). ${res.ksRow.note}` : '';
+        src.hidden = !res.ksRow;
+      }
+      for (const row of res.rows) {
+        const tr = $('lr-' + row.load.id);
+        if (!tr) continue;
+        const cell = (k) => tr.querySelector(`[data-out="${k}"]`);
+        const st = cell('state');
+        if (!row.calc.ok) {
+          cell('pa').textContent = '—'; cell('max').textContent = '—';
+          st.textContent = row.calc.errors.join(' '); st.className = 'state bad';
+          tr.classList.remove('excluded');
+        } else {
+          cell('pa').textContent = f(row.calc.unit.S, 2);
+          cell('max').textContent = f(row.calc.max.S, 2);
+          st.className = 'state';
+          st.textContent = row.counted ? (row.calc.notes.join(' ') || 'Counted') : 'Excluded: ' + row.excludedReason;
+          tr.classList.toggle('excluded', !row.counted);
+        }
+        for (const fld of ['pn', 'eff', 'pf', 'qty', 'ku']) {
+          const inp = tr.querySelector(`[data-f="${fld}"]`);
+          const bad = !row.calc.ok && row.calc.errors.some((e) => errorField(e) === fld);
+          inp.classList.toggle('invalid', bad);
+        }
+      }
+      res.children.forEach(walk);
+    };
+    walk(r);
+    renderWarnings(r);
+  }
+  function errorField(e) {
+    if (/Rated power/.test(e)) return 'pn';
+    if (/Quantity/.test(e)) return 'qty';
+    if (/fficiency/.test(e)) return 'eff';
+    if (/power factor|cosφ/i.test(e)) return 'pf';
+    if (/ku/.test(e)) return 'ku';
+    return '';
+  }
+
+  function renderSummary(r) {
+    const s = project.system;
+    const basis = s.summation === 'arithmetic' ? 'arithmetic kVA sum' : 'complex P/Q sum';
+    const Imax = Math.max(r.phaseCurrent.L1, r.phaseCurrent.L2, r.phaseCurrent.L3, 1e-9);
+    const bar = (ph) => `<div class="phase-row">
+        <span class="phase-tag" style="color:var(--${ph.toLowerCase()})">${ph}</span>
+        <div class="bar"><i style="width:${(r.phaseCurrent[ph] / Imax) * 100}%;background:var(--${ph.toLowerCase()})"></i></div>
+        <span class="num">${f(r.phaseCurrent[ph])} A</span></div>`;
+    const over = r.unbalance > s.unbalanceLimit;
+    $('summary').innerHTML = `
+      <div class="stack">
+        <div><span class="label">${esc(r.name)} · design maximum demand</span></div>
+        <div class="figures">
+          <div class="figure key"><span class="label">Demand S</span><span class="val">${f(r.demand.S)}<small>kVA</small></span><span class="sub">${basis}, incl. k<sub>ext</sub> ${f(r.kext, 2)}</span></div>
+          <div class="figure key"><span class="label">Design current Ib</span><span class="val">${f(r.Ib)}<small>A</small></span><span class="sub">3-phase at ${s.voltageLL} V</span></div>
+          <div class="figure"><span class="label">Active P</span><span class="val">${f(r.demand.P)}<small>kW</small></span></div>
+          <div class="figure"><span class="label">Reactive Q</span><span class="val">${f(r.demand.Q)}<small>kvar</small></span></div>
+          <div class="figure"><span class="label">Power factor</span><span class="val">${f(r.pf, 2)}</span></div>
+          <div class="figure"><span class="label">Connected</span><span class="val">${f(r.connected.S)}<small>kVA</small></span><span class="sub">effective ks ${f(r.effectiveKs, 2)}</span></div>
+        </div>
+        <div class="muted" style="font-size:.82rem">Arithmetic ${f(r.demand.Sarith)} kVA · complex ${f(r.demand.Scomplex)} kVA</div>
+      </div>
+      <div class="phases">
+        <span class="label">Phase loading at ${Math.round(s.voltageLL / Math.sqrt(3))} V L–N</span>
+        ${bar('L1')}${bar('L2')}${bar('L3')}
+        <div class="phase-foot"><span style="color:${over ? 'var(--warn)' : 'var(--ok)'}">Unbalance ${f(r.unbalance * 100, 0)}% (limit ${f(s.unbalanceLimit * 100, 0)}%)</span><span>Highest: ${r.maxPhase}</span></div>
+      </div>`;
+  }
+
+  function renderWarnings(r) {
+    const list = C.allWarnings(r);
+    if (r.errorCount) list.unshift({ level: 'error', board: '', text: `${r.errorCount} load${r.errorCount > 1 ? 's have' : ' has'} missing or invalid data and ${r.errorCount > 1 ? 'are' : 'is'} left out of every total. See the Status column.` });
+    const order = { error: 0, warning: 1, advisory: 2 };
+    list.sort((a, b) => order[a.level] - order[b.level]);
+    $('warnings').innerHTML = list.map((w) => `<div class="wn ${w.level}"><span class="pill">${w.level}</span><span>${w.board ? `<b>${esc(w.board)}:</b> ` : ''}${esc(w.text)}</span></div>`).join('');
+  }
+
+  /* ---------- library ---------- */
+  function renderLibrary() {
+    const kinds = [['ks', 'ks (coincidence)'], ['ku', 'ku (utilisation)'], ['assembly', 'Assembly diversity']];
+    $('view-library').innerHTML = `<div class="panel">
+      <h2>Factor library</h2>
+      <p>Every factor carries its source. The built-in rows are the ones the research could source. They are examples from French and international guidance and are not authoritative for Mongolian design. Add your own rows from the governing local standard, and choose them per board under <b>ks from library</b>.</p>
+      <div class="table-scroll"><table>
+        <thead><tr><th>Table</th><th>Name</th><th>Value</th><th>Kind</th><th>Region</th><th>Source</th><th>Note</th><th></th></tr></thead>
+        <tbody>${project.library.map((r) => `<tr>
+          <td><input type="text" class="w-l" data-lib="${esc(r.id)}" data-f="table" value="${val(r.table)}" aria-label="Table"></td>
+          <td><input type="text" class="w-m" data-lib="${esc(r.id)}" data-f="name" value="${val(r.name)}" aria-label="Name"></td>
+          <td><input type="number" class="w-xs" step="0.01" min="0" data-lib="${esc(r.id)}" data-f="value" value="${val(r.value)}" aria-label="Value"></td>
+          <td><select data-lib="${esc(r.id)}" data-f="kind" aria-label="Kind">${kinds.map(([v, t]) => `<option value="${v}"${r.kind === v ? ' selected' : ''}>${t}</option>`).join('')}</select></td>
+          <td><input type="text" class="w-s" data-lib="${esc(r.id)}" data-f="region" value="${val(r.region)}" aria-label="Region"></td>
+          <td><input type="text" class="w-l" data-lib="${esc(r.id)}" data-f="source" value="${val(r.source)}" aria-label="Source"></td>
+          <td><input type="text" class="w-l" data-lib="${esc(r.id)}" data-f="note" value="${val(r.note)}" aria-label="Note"></td>
+          <td><button class="ghost" data-act="del-lib" data-lib="${esc(r.id)}" aria-label="Remove factor">✕</button></td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+      <div class="row">
+        <button class="primary" data-act="add-lib">Add factor</button>
+        <button data-act="restore-lib">Restore built-in factors</button>
+      </div>
+      <p class="muted">Region “Mongolia” or “User” suppresses the non-local advisory. IEC 61439-2 Table 101 rows rate switchboard assemblies and always raise a warning when used as a board ks.</p>
+    </div>`;
+  }
+
+  /* ---------- project file ---------- */
+  function renderFile() {
+    $('view-file').innerHTML = `<div class="panel">
+      <h2>Project file</h2>
+      <p>Your project saves in this browser as you work. To move it to another device or keep a copy, copy the JSON below or open a saved .json file.</p>
+      <div class="row">
+        <button class="primary" data-act="copy-json">Copy JSON</button>
+        <button data-act="load-json">Load JSON from box</button>
+        <label class="row" style="gap:6px"><span class="muted">Open file</span><input id="file-open" type="file" accept=".json,application/json"></label>
+      </div>
+      <div class="status" id="file-status"></div>
+      <textarea id="project-json" spellcheck="false" aria-label="Project JSON">${esc(JSON.stringify(project, null, 2))}</textarea>
+      <h3>Start over</h3>
+      <div class="row">
+        <button data-act="new-project">New empty project</button>
+        ${Object.entries(SAMPLES).map(([k, s]) => `<button data-act="sample" data-sample="${k}">Load ${esc(s.label)}</button>`).join('')}
+      </div>
+      <p class="muted">Starting over replaces the current project. Copy the JSON first if you want to keep it.</p>
+    </div>`;
+  }
+  function fileStatus(text, bad) {
+    const el = $('file-status');
+    if (el) { el.textContent = text; el.className = 'status' + (bad ? ' bad' : ''); }
+  }
+  function loadFromText(text) {
+    let p;
+    try { p = JSON.parse(text); } catch (e) { fileStatus('That is not valid JSON: ' + e.message, true); return; }
+    if (!isProject(p)) { fileStatus('This JSON has no "root" board with a "loads" list, so it is not a project file.', true); return; }
+    project = normalise(p);
+    save(); renderAll();
+    fileStatus('Project loaded.');
+  }
+
+  /* ---------- tabs & rendering ---------- */
+  let tab = 'schedule';
+  function setTab(t) {
+    tab = t;
+    document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === t)));
+    for (const v of ['schedule', 'library', 'file', 'method']) $('view-' + v).hidden = v !== t;
+    if (t === 'schedule') renderTree();
+    if (t === 'library') renderLibrary();
+    if (t === 'file') renderFile();
+  }
+  function renderAll() { renderSystem(); setTab(tab); }
+
+  /* ---------- events ---------- */
+  function parseField(el) {
+    if (el.type === 'checkbox') return el.checked;
+    if (el.type === 'number') return el.value === '' ? null : Number(el.value);
+    return el.value;
+  }
+
+  document.addEventListener('input', (ev) => {
+    const el = ev.target;
+    const fld = el.dataset.f;
+    if (el.id === 'project-name') { project.name = el.value; save(); return; }
+    if (el.dataset.sys) {
+      const k = el.dataset.sys;
+      if (k === 'voltageLL') project.system.voltageLL = Number(el.value);
+      else if (k === 'unbalanceLimit') project.system.unbalanceLimit = el.value === '' ? C.DEFAULT_SYSTEM.unbalanceLimit : Number(el.value) / 100;
+      else project.system[k] = el.value;
+    } else if (el.dataset.l && fld) {
+      const entry = loads.get(el.dataset.l);
+      if (!entry) return;
+      entry.load[fld] = parseField(el);
+      if (fld === 'isMotor' || fld === 'category') { renderTree(); save(); return; } // placeholders depend on these
+    } else if (el.dataset.b && fld) {
+      const entry = boards.get(el.dataset.b);
+      if (!entry) return;
+      const b = entry.board;
+      if (fld === 'ksRef') {
+        b.ksRef = el.value || null;
+        const row = project.library.find((r) => r.id === b.ksRef);
+        if (row) { b.ks = row.value; $('ks-' + b.id).value = row.value; }
+      } else {
+        b[fld] = parseField(el);
+        if (fld === 'ks' && b.ksRef) {
+          const row = project.library.find((r) => r.id === b.ksRef);
+          if (!row || row.value !== b.ks) { b.ksRef = null; $('ksref-' + b.id).value = ''; }
+        }
+      }
+    } else if (el.dataset.lib && fld) {
+      const row = project.library.find((r) => r.id === el.dataset.lib);
+      if (row) row[fld] = parseField(el);
+      save(); return;
+    } else return;
+    save();
+    if (tab === 'schedule') updateResults();
+  });
+
+  document.addEventListener('change', (ev) => {
+    if (ev.target.id !== 'file-open' || !ev.target.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = () => loadFromText(String(reader.result));
+    reader.onerror = () => fileStatus('The file could not be read.', true);
+    reader.readAsText(ev.target.files[0]);
+  });
+
+  document.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button');
+    if (!btn) return;
+    if (btn.dataset.tab) { setTab(btn.dataset.tab); return; }
+    const act = btn.dataset.act;
+    if (!act) return;
+    const bEntry = btn.dataset.b ? boards.get(btn.dataset.b) : null;
+    switch (act) {
+      case 'add-load': bEntry.board.loads.push(newLoad({ name: 'Load ' + (bEntry.board.loads.length + 1) })); break;
+      case 'add-board': bEntry.board.children.push(newBoard({ name: 'DB-' + (boards.size) })); break;
+      case 'del-board': {
+        const p = bEntry.parent;
+        p.children = p.children.filter((c) => c !== bEntry.board);
+        break;
+      }
+      case 'del-load': {
+        const e = loads.get(btn.dataset.l);
+        e.board.loads = e.board.loads.filter((l) => l !== e.load);
+        break;
+      }
+      case 'add-lib':
+        project.library.push({ id: uid('f'), table: 'User factors', name: 'New factor', value: 1, kind: 'ks', region: 'User', source: '', note: '' });
+        save(); renderLibrary(); return;
+      case 'del-lib':
+        project.library = project.library.filter((r) => r.id !== btn.dataset.lib);
+        save(); renderLibrary(); return;
+      case 'restore-lib': {
+        const user = project.library.filter((r) => !C.DEFAULT_LIBRARY.some((d) => d.id === r.id));
+        project.library = clone(C.DEFAULT_LIBRARY).concat(user);
+        save(); renderLibrary(); return;
+      }
+      case 'copy-json': {
+        const ta = $('project-json');
+        ta.value = JSON.stringify(project, null, 2);
+        const fallback = () => { ta.focus(); ta.select(); fileStatus('Copying is blocked here. The JSON is selected: press Ctrl+C or ⌘C.'); };
+        try {
+          navigator.clipboard.writeText(ta.value).then(() => fileStatus('JSON copied to the clipboard.'), fallback);
+        } catch (e) { fallback(); }
+        return;
+      }
+      case 'load-json': loadFromText($('project-json').value); return;
+      case 'new-project': project = makeProject(null); save(); tab = 'schedule'; renderAll(); return;
+      case 'sample': project = makeProject(btn.dataset.sample); save(); tab = 'schedule'; renderAll(); return;
+      default: return;
+    }
+    if (project.example && (act === 'add-load' || act === 'add-board')) project.example = false;
+    save(); renderTree();
+  });
+
+  renderAll();
+})();
+</script>
+</body>
+</html>

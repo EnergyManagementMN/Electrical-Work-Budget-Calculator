@@ -1,0 +1,11 @@
+{
+  "name": "electrical-work-budget-calculator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Electrical load calculation (maximum demand with ku/ks factors), per SPEC 1 of the research log.",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
+    "build": "node scripts/build-single.js"
+  },
+  "license": "UNLICENSED"
+}

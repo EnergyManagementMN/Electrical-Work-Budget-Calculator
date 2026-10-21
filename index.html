@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Electrical Load Calculator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Public+Sans:wght@400;600&display=swap">
+<link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="title-block">
+      <span class="label">Maximum demand · IEC method (ku / ks)</span>
+      <input class="project-name" id="project-name" type="text" aria-label="Project name">
+    </div>
+    <div class="system" id="system"></div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-schedule" data-tab="schedule" aria-selected="true">Load schedule</button>
+    <button class="tab" role="tab" id="tab-library" data-tab="library" aria-selected="false">Factor library</button>
+    <button class="tab" role="tab" id="tab-file" data-tab="file" aria-selected="false">Project file</button>
+    <button class="tab" role="tab" id="tab-method" data-tab="method" aria-selected="false">Method &amp; sources</button>
+  </nav>
+
+  <section id="view-schedule" class="stack">
+    <div class="summary" id="summary"></div>
+    <div class="warnings" id="warnings"></div>
+    <div id="tree"></div>
+  </section>
+
+  <section id="view-library" hidden></section>
+  <section id="view-file" hidden></section>
+
+  <section id="view-method" class="panel method" hidden>
+    <h2>How the demand is calculated</h2>
+    <p>Connected load is converted to expected maximum demand with a utilisation factor ku per load and a coincidence factor ks per board. Results size feeders, boards, transformers and generators.</p>
+    <ol>
+      <li><b>Installed apparent power per load.</b> <span class="formula">Pa = Pn / (η · cosφ)</span> kVA. Motor ratings are shaft output, so η and cosφ are required. Active power <span class="formula">P = Pn/η</span>, reactive <span class="formula">Q = P · tanφ</span>. <span class="tag">Sourced EIG</span></li>
+      <li><b>Maximum utilisation.</b> <span class="formula">Pa,max = Pa · ku · n</span>. Typical ku: motors 0.75 (average industrial), incandescent lighting 1, EV charging 1. <span class="tag">Sourced EIG</span></li>
+      <li><b>Board demand.</b> <span class="formula">S = ks · Σ Pa,max</span>. Mixed power factors are summed as complex power, <span class="formula">S = √((ks·ΣP)² + (ks·ΣQ)²)</span>. The arithmetic kVA sum is shown beside it and can be chosen as the design basis. <span class="tag">Sourced EIG</span> <span class="tag">Derived</span></li>
+      <li><b>Hierarchy.</b> Each board applies its own ks to the demand of the loads and sub-boards it feeds. ks is never applied twice to the same load.</li>
+      <li><b>Extension factor.</b> <span class="formula">S,design = S · k,ext</span> with k,ext ≥ 1. User input only. <span class="tag assumed">Assumed</span></li>
+      <li><b>Design current.</b> Three-phase <span class="formula">Ib = S·10³ / (√3·U)</span>; single-phase <span class="formula">Ib = S·10³ / V</span>. <span class="tag">Sourced EIG</span></li>
+      <li><b>Phase balance.</b> Single-phase loads are summed per phase. Unbalance <span class="formula">(Imax − Iavg) / Iavg</span>, checked against your limit. <span class="tag assumed">Assumed method</span></li>
+    </ol>
+    <h3>Non-simultaneous and standby loads</h3>
+    <p>Give loads that never run together the same exclusive group (for example <code>season</code>) and different options (<code>winter</code>, <code>summer</code>). On each board only the option with the larger demand counts. Standby loads count toward connected load but not demand.</p>
+    <h3>What this version does not cover yet</h3>
+    <ul>
+      <li>No national demand-factor tables are built in as authoritative. MNS and PUE tables for Mongolia were not found during research. Residential per-dwelling tables (BS 7671 App. 4, SP 256) are not included.</li>
+      <li>Lift starting current (Ib + ⅓ Istart), motor starting dip, harmonic neutral current and cable sizing are later modules.</li>
+      <li>EIG Fig. A15 (workshop example) is not a test case yet because its itemised values could not be read.</li>
+    </ul>
+    <h3>Sources</h3>
+    <ul>
+      <li><a href="https://www.electrical-installation.org/enwiki/Estimation_of_actual_maximum_kVA_demand" target="_blank" rel="noopener">EIG: Estimation of actual maximum kVA demand</a></li>
+      <li><a href="https://www.electrical-installation.org/enwiki/Diversity_factor" target="_blank" rel="noopener">EIG: Diversity factor (IEC 61439-2 Table 101, UTE C 15-105)</a></li>
+      <li><a href="https://www.electrical-installation.org/enwiki/Installed_apparent_power_(kVA)" target="_blank" rel="noopener">EIG: Installed apparent power (kVA)</a></li>
+      <li><a href="https://www.electrical-installation.org/enwiki/Installed_power_(kW)" target="_blank" rel="noopener">EIG: Installed power (kW)</a></li>
+    </ul>
+    <p class="muted">Results are design aids. A licensed engineer must verify factors against the governing local standard.</p>
+  </section>
+</div>
+<script src="src/calc.js"></script>
+<script src="src/app.js"></script>
+</body>
+</html>
