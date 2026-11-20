@@ -4,7 +4,38 @@ Maximum-demand (load) calculator for electrical installations. It implements **S
 demand/diversity factors** from the *Electrical Calc App – Research Log*: connected load is converted to design
 demand with a utilisation factor **ku** per load and a coincidence factor **ks** per board (IEC / Schneider EIG method).
 
-## Use it
+Two apps live here:
+
+| App | Open | What it answers |
+|---|---|---|
+| Electrical load calculator | `index.html` / `dist/electrical-load-calculator.html` | Maximum demand (kVA, Ib) with ku/ks factors |
+| Energy consumption calculator | `energy.html` / `dist/energy-consumption-calculator.html` | kWh, monthly bill, CO₂ and savings payback/NPV/IRR |
+
+## Energy consumption calculator
+
+A browser port of the workbook *Energy_Load_Schedule_Calculator_2026-11-19.xlsx* (Settings, Load_Schedule, Summary,
+Monthly_Profile, Savings_Scenarios). Same formulas; the sample project reproduces every workbook output, and
+`test/energy.test.js` checks this against the workbook's own computed values.
+
+- **Load schedule** – one row per item: qty, power (kW/HP/W), load factor, diversity, hours/day, days/week,
+  months in use, start month and start hour. Rows are validated; bad rows are excluded and flagged.
+- **Summary** – connected and demand kW, estimated max demand and peak month, annual kWh, energy cost, demand
+  charges, total bill, all-in cost per kWh, CO₂, load factor, totals by category and zone, top 10 consumers, checks.
+- **Monthly profile** – seasonal spread, demand charge (kW or kVA basis), fixed charge, reactive penalty, tax,
+  total bill, and calibration against metered kWh from bills (flagged outside ±15%).
+- **Savings scenarios** – new kW, hours or load factor per load; kWh and cost saved, payback, NPV and IRR, plus a
+  portfolio total.
+- **Settings** – flat or time-of-use tariff, demand charge, PF, fixed charge, tax, reactive penalty, calendar, CO₂
+  factor, defaults, discount rate, zones. Placeholder values are marked until you change them.
+- **Project file** – paste rows copied from the workbook (columns A–N), save/open `.json`, export results `.csv`.
+  English / Mongolian labels (Mongolian machine-assisted, from the workbook).
+
+Tariff 230 MNT/kWh, demand charge 10,000 MNT/kW-month, PF 0.90, CO₂ 1.0 kg/kWh and 8 % discount rate are the
+workbook's placeholders, not published values.
+
+## Electrical load calculator
+
+### Use it
 
 Open `index.html` in a browser, or open the self-contained `dist/electrical-load-calculator.html`. No install, no server.
 
@@ -33,13 +64,14 @@ Open `index.html` in a browser, or open the self-contained `dist/electrical-load
 ## Develop
 
 ```sh
-npm test        # unit tests: EIG examples A and B, motor example D, hierarchy, exclusive groups, phases, warnings
-npm run build   # regenerate dist/electrical-load-calculator.html
+npm test        # load calc: EIG examples, hierarchy, phases, warnings; energy calc: workbook golden values
+npm run build   # regenerate both files in dist/
 ```
 
 - `src/calc.js` – pure calculation engine (no DOM); later modules (cable sizing, voltage drop, short circuit…)
   consume its outputs (`Ib`, `P`, `Q`, `S`).
-- `src/app.js`, `src/styles.css`, `index.html` – UI.
+- `src/app.js`, `src/styles.css`, `index.html` – load calculator UI.
+- `src/energy-calc.js` – energy engine (pure); `src/energy-app.js`, `src/energy.css`, `energy.html` – its UI.
 
 ## Open items (from the research log)
 

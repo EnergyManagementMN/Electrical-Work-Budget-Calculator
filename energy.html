@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Energy Consumption Calculator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Public+Sans:wght@400;600&display=swap">
+<link rel="stylesheet" href="src/styles.css">
+<link rel="stylesheet" href="src/energy.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="title-block">
+      <span class="label" id="kicker">Energy load schedule · consumption · bill · savings</span>
+      <input class="project-name" id="project-name" type="text" aria-label="Project name">
+      <input class="site-name" id="site-name" type="text" aria-label="Site / location">
+    </div>
+    <div class="system">
+      <label class="field"><span>Language</span>
+        <select id="language"><option>English</option><option>Mongolian</option></select>
+      </label>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" data-tab="summary" aria-selected="true" data-l="T_SUM">Summary</button>
+    <button class="tab" role="tab" data-tab="schedule" aria-selected="false" data-l="T_LS">Load schedule</button>
+    <button class="tab" role="tab" data-tab="monthly" aria-selected="false" data-l="T_MP">Monthly profile</button>
+    <button class="tab" role="tab" data-tab="savings" aria-selected="false" data-l="T_SAV">Savings scenarios</button>
+    <button class="tab" role="tab" data-tab="settings" aria-selected="false">Settings</button>
+    <button class="tab" role="tab" data-tab="file" aria-selected="false">Project file</button>
+    <button class="tab" role="tab" data-tab="method" aria-selected="false">Method</button>
+  </nav>
+
+  <section id="view-summary" class="stack"></section>
+  <section id="view-schedule" class="stack" hidden></section>
+  <section id="view-monthly" class="stack" hidden></section>
+  <section id="view-savings" class="stack" hidden></section>
+  <section id="view-settings" class="stack" hidden></section>
+  <section id="view-file" class="stack" hidden></section>
+
+  <section id="view-method" class="panel method" hidden>
+    <h2>How the numbers are calculated</h2>
+    <p>Same formulas as the workbook <i>Energy Load Schedule &amp; Consumption Calculator</i> (version 2026-11-19). The sample project reproduces every output of that workbook; the automated tests check this.</p>
+    <ol>
+      <li><b>Rated kW/unit</b> <span class="formula">kW × 1, HP × 0.7457, W × 0.001</span>. No motor efficiency is applied to HP.</li>
+      <li><b>Connected load</b> <span class="formula">Qty × rated kW</span>. <b>Demand load</b> <span class="formula">Connected × load factor × diversity factor</span>.</li>
+      <li><b>Daily kWh</b> <span class="formula">Qty × kW × LF × hours/day</span>. Diversity affects kW demand only, not energy.</li>
+      <li><b>Annual kWh</b> <span class="formula">Daily × days/week × 52 × months/12</span>. Months in use start at the start month and wrap the year. A fractional month counts in part (7.5 months from October = Oct–Apr full, May half).</li>
+      <li><b>Energy rate</b>: flat tariff, or with time-of-use <span class="formula">(peak h × peak rate + off-peak h × off-peak rate) / hours</span>, where peak hours are the overlap of [start, start + hours) with the peak window, wrapping past midnight.</li>
+      <li><b>Monthly max demand</b> is the sum of demand kW of every item in use that month. It is a coincident estimate, not a metered 15/30-minute peak. <b>Billed demand</b> is that kW, or kW ÷ site PF on a kVA basis.</li>
+      <li><b>Bill</b> <span class="formula">(energy + demand charge + fixed + reactive penalty) × (1 + tax)</span>. Excess kVArh <span class="formula">kWh × max(0, tanφ(site PF) − tanφ(PF limit))</span>.</li>
+      <li><b>Savings</b> new kWh uses the new kW, hours or LF (blank keeps current). Cost saved uses the row's energy rate only. <span class="formula">NPV = PV(rate, life, saving) − investment</span>; IRR is the rate where NPV = 0.</li>
+      <li><b>Calibration</b> <span class="formula">(model − meter) / meter</span> per month, flagged above the tolerance (default ±15%).</li>
+    </ol>
+    <h3>Assumptions you must confirm</h3>
+    <ul>
+      <li>Tariff 230 MNT/kWh, TOU 290/150, demand charge 10,000 MNT/kW-month, site PF 0.90, CO₂ 1.0 kg/kWh and discount rate 8% are <b>placeholders</b>, not published values. Copy real values from a bill.</li>
+      <li>Demand includes the load factor. For loads that cycle (compressors, pumps on/off) the real 15/30-minute peak is closer to connected × diversity, so the demand charge here can be low. Check against a meter.</li>
+      <li>52 weeks a year; holidays are not deducted. All months are 1/12 of the year.</li>
+      <li>Measures on the same row are not interactive: two measures on one ID each count against the original row.</li>
+      <li>Savings exclude demand-charge, reactive-penalty and tax effects, and assume a constant real saving every year.</li>
+      <li>Mongolian labels are machine-assisted and need checking by a native speaker.</li>
+    </ul>
+    <p class="muted">An engineering estimate for budgeting and screening, not an investment-grade audit (ASHRAE Level 2/3 or ISO 50002).</p>
+  </section>
+  <p class="muted foot">Also in this project: <a href="index.html">Electrical load calculator (maximum demand, ku/ks)</a></p>
+</div>
+<script src="src/energy-calc.js"></script>
+<script src="src/energy-app.js"></script>
+</body>
+</html>

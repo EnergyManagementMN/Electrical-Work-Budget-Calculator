@@ -1,0 +1,74 @@
+/* Energy calculator additions on top of styles.css tokens. */
+.top input.project-name, .top input.site-name { border: 0; border-bottom: 1px dashed transparent; border-radius: 0; background: transparent; padding: 0; }
+.top input.project-name:hover, .top input.project-name:focus, .top input.site-name:hover, .top input.site-name:focus { border-bottom-color: var(--rule-strong); outline: none; }
+.panel { align-content: start; }
+.site-name {
+  font: 400 0.95rem var(--font-body); color: var(--ink-2); background: transparent; border: 0; padding: 0;
+  border-bottom: 1px dashed transparent; width: 100%; max-width: 40ch;
+}
+.site-name:hover, .site-name:focus { border-bottom-color: var(--rule-strong); outline: none; }
+.foot { font-size: 0.85rem; }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); background: var(--sheet);
+  border: 1px solid var(--rule); border-radius: var(--r); overflow: hidden; }
+.kpi { padding: 14px 16px; display: grid; gap: 3px; align-content: start; min-width: 0;
+  border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); margin: 0 -1px -1px 0; }
+.kpi .val { font: 500 1.45rem/1.15 var(--font-mono); font-variant-numeric: tabular-nums; }
+.kpi .val small { white-space: nowrap; font-size: 0.75rem; color: var(--ink-2); margin-left: 4px; font-family: var(--font-body); }
+.kpi.key .val { color: var(--accent); font-size: 1.7rem; }
+.kpi .sub { font-size: 0.78rem; color: var(--ink-2); }
+
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 14px; }
+.panel h3 { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.panel h3 .muted { font: 400 0.8rem var(--font-body); }
+
+tr.total td { font-weight: 600; background: var(--accent-soft); }
+td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+th.num { font-family: var(--font-body); }
+td.ok { color: var(--ok); font-weight: 600; }
+td.bad, span.bad { color: var(--err); font-weight: 600; }
+.share { display: inline-block; height: 8px; background: var(--accent); border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+td.in { padding: 2px 3px; }
+td.in input, td.in select { width: 100%; padding: 4px 5px; }
+td.in input.n { min-width: 4.6em; }
+td.in input.t { min-width: 7em; }
+td.in input.d { min-width: 16em; }
+td.in select { min-width: 8.5em; }
+td.in select[data-k="unit"] { min-width: 4.8em; }
+td.in input.id { min-width: 0; width: 3.6em; }
+.checks td:first-child { white-space: normal; }
+input.cur { border-color: var(--rule); }
+tr.sample td:first-child input { border-color: #d9822b; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.toolbar .spacer { flex: 1 1 auto; }
+
+.chart { width: 100%; height: auto; display: block; }
+.chart text { font: 11px var(--font-body); fill: var(--ink-2); }
+.chart .bar-kwh { fill: var(--accent); }
+.chart .bar-bill { fill: var(--accent); }
+.chart .meter { fill: var(--sheet); stroke: var(--warn); stroke-width: 2; }
+.chart .grid { stroke: var(--rule); stroke-width: 1; }
+.chart .line { fill: none; stroke: var(--warn); stroke-width: 2; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.8rem; color: var(--ink-2); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+
+.settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 14px; }
+.setting { display: grid; grid-template-columns: minmax(0, 1fr) 9.5em; gap: 4px 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--rule); }
+.setting:last-child { border-bottom: 0; }
+.setting label { font-size: 0.9rem; }
+.setting .note { grid-column: 1 / -1; font-size: 0.76rem; color: var(--ink-2); }
+.setting input, .setting select { width: 100%; }
+.ph { font: 600 0.62rem var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; padding: 0 5px; border-radius: 3px; background: var(--warn-soft); color: var(--warn); margin-left: 6px; }
+.zones { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.zones input { width: 100%; }
+.checks .ok { color: var(--ok); } .checks .bad { color: var(--err); }
+.verdict { font: 600 0.9rem var(--font-display); letter-spacing: 0.04em; padding: 2px 10px; border-radius: 99px; }
+.verdict.ok { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+.verdict.bad { background: var(--err-soft); color: var(--err); }
+textarea.small { min-height: 160px; }
+
+@media (max-width: 760px) {
+  .kpi .val { font-size: 1.25rem; }
+  .kpi.key .val { font-size: 1.5rem; }
+  .setting { grid-template-columns: minmax(0, 1fr) 8em; }
+}
