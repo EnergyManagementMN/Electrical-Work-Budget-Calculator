@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Эрчим хүч</string>
+    <string name="title_activity_main">Эрчим хүч</string>
+    <string name="package_name">mn.energysaving.calculator</string>
+    <string name="custom_url_scheme">mn.energysaving.calculator</string>
+</resources>

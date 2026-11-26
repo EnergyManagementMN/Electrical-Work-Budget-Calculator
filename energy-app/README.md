@@ -29,6 +29,24 @@ The `dist/` folder is a complete static website. Any static host works, for exam
 
 Use an `https://` address — phones only offer "Install" / "Add to Home Screen" over HTTPS.
 
+## 4. Android app (APK)
+
+The `android/` folder is a Capacitor project that packages the same app as an offline Android app
+(package `mn.energysaving.calculator`, Android 7.0+). Needs JDK 21 and the Android SDK (`ANDROID_HOME`).
+
+```bash
+npm run build && npx cap sync android
+cd android && ./gradlew assembleRelease
+# → android/app/build/outputs/apk/release/app-release.apk
+```
+
+**Signing.** Release builds are signed with `signing/energy-app-release.jks`, configured in
+`signing/keystore.properties`. That folder is **not in git**. Keep a backup of both files: every update
+must be signed with the same key, or phones will refuse to install it over the old version. Without them,
+`assembleRelease` produces an unsigned APK.
+
+To release an update, raise `versionCode` (and `versionName`) in `android/app/build.gradle`.
+
 ## Project layout
 
 ```

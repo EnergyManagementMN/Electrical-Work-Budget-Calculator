@@ -3,6 +3,7 @@ import { CALCULATORS } from "./calc/calculators";
 import { CalculatorCard } from "./components/CalculatorCard";
 import { CONTACT } from "./config";
 import { UI, type Lang } from "./i18n";
+import { isNativeApp } from "./platform";
 
 function initialLang(): Lang {
   try {
@@ -49,7 +50,7 @@ export default function App() {
           <h2>{UI.offerTitle[lang]}</h2>
           <ol>{UI.offerSteps[lang].map(s => <li key={s}>{s}</li>)}</ol>
           <div className="contact">
-            <a className="btn" href={CONTACT.facebookUrl} target="_blank" rel="noopener noreferrer">{UI.offerButton[lang]}</a>
+            <a className="btn" href={CONTACT.facebookUrl} target={isNativeApp ? undefined : "_blank"} rel="noopener noreferrer">{UI.offerButton[lang]}</a>
             <span>{UI.phone[lang]}: {CONTACT.phone} · {CONTACT.email}</span>
           </div>
         </section>

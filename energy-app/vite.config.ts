@@ -10,20 +10,6 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["icon.svg"],
-      workbox: {
-        // Cache Google Fonts so the app keeps its typography offline.
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "google-fonts",
-              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
-              cacheableResponse: { statuses: [0, 200] }
-            }
-          }
-        ]
-      },
       manifest: {
         name: "Эрчим хүч хэмнэх тооцоолуур",
         short_name: "Эрчим хүч",
