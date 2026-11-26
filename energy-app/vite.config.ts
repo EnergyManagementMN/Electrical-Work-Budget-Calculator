@@ -29,8 +29,8 @@ export default defineConfig({
         short_name: "Эрчим хүч",
         description: "Energy-saving calculators for businesses",
         lang: "mn",
-        theme_color: "#1d3b53",
-        background_color: "#f3f5f7",
+        theme_color: "#63C7CE",
+        background_color: "#ffffff",
         display: "standalone",
         start_url: ".",
         icons: [
